@@ -19,10 +19,10 @@ type Activity struct {
 
 type Todo struct {
 	ID              int         `json:"id"`
-	ActivityGroupId string      `json:"activity_group_id"`
-	Title           string      `json:"title"`
+	ActivityGroupId interface{} `json:"activity_group_id"`
+	Title           interface{} `json:"title"`
 	IsActive        interface{} `json:"is_active"`
-	Priority        string      `json:"priority"`
+	Priority        interface{} `json:"priority"`
 	CreatedAt       string      `json:"created_at"`
 	UpdatedAt       string      `json:"updated_at"`
 	DeletedAt       interface{} `json:"deleted_at"`
@@ -84,6 +84,7 @@ func ActivityRest(w http.ResponseWriter, r *http.Request) {
 		activities = append(activities, t)
 
 		var resp response
+		w.WriteHeader(http.StatusCreated)
 		resp.Status = "Success"
 		resp.Message = "Success"
 		resp.Data = t
@@ -98,7 +99,13 @@ func ActivityRest(w http.ResponseWriter, r *http.Request) {
 		var resp response
 		resp.Status = "Success"
 		resp.Message = "Success"
-		resp.Data = activities
+		data := []Activity{}
+		for i := range activities {
+			if activities[i].DeletedAt == nil {
+				data = append(data, activities[i])
+			}
+		}
+		resp.Data = data
 		jData, err := json.Marshal(resp)
 		if err != nil {
 			fmt.Fprint(w, "Test Error")
@@ -124,23 +131,7 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if t.Title == "" {
-			var resp response
-			resp.Status = "Bad Request"
-			resp.Message = "title cannot be null"
-			resp.Data = kosong
-			w.WriteHeader(http.StatusBadRequest)
-
-			jData, err := json.Marshal(resp)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-			w.Write(jData)
-			return
-		}
-
-		if t.ActivityGroupId == "" {
+		if t.ActivityGroupId == "" || t.ActivityGroupId == nil {
 			var resp response
 			resp.Status = "Bad Request"
 			resp.Message = "activity_group_id cannot be null"
@@ -156,6 +147,26 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if t.Title == "" || t.Title == nil {
+			var resp response
+			resp.Status = "Bad Request"
+			resp.Message = "title cannot be null"
+			resp.Data = kosong
+			w.WriteHeader(http.StatusBadRequest)
+
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			w.Write(jData)
+			return
+		}
+
+		if t.Priority == "" || t.Priority == nil {
+			t.Priority = "very-high"
+		}
+
 		t.IsActive = "1"
 		t.CreatedAt = "2021-12-01T09:23:05.825Z"
 		t.UpdatedAt = "2021-12-01T09:23:05.825Z"
@@ -163,7 +174,10 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 		t.ID = len(todos) + 1
 		todos = append(todos, t)
 
+		t.IsActive = true
+
 		var resp response
+		w.WriteHeader(http.StatusCreated)
 		resp.Status = "Success"
 		resp.Message = "Success"
 		resp.Data = t
@@ -178,7 +192,22 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 		var resp response
 		resp.Status = "Success"
 		resp.Message = "Success"
-		resp.Data = todos
+
+		param1 := r.URL.Query().Get("activity_group_id")
+
+		if param1 != "" {
+
+			data := []Todo{}
+			for i := range todos {
+				if todos[i].ActivityGroupId == param1 {
+					data = append(data, todos[i])
+				}
+			}
+
+			resp.Data = data
+		} else {
+			resp.Data = todos
+		}
 		jData, err := json.Marshal(resp)
 		if err != nil {
 			fmt.Fprint(w, "Test Error")
@@ -277,7 +306,7 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 		} else if r.Method == "DELETE" {
 			resp.Status = "Success"
 			resp.Message = "Success"
-			activities[id-1].DeletedAt = nil
+			activities[id-1].DeletedAt = "2021-12-01T09:23:05.825Z"
 			resp.Data = kosong
 			jData, err := json.Marshal(resp)
 			if err != nil {
@@ -333,12 +362,10 @@ func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 				return
 			}
 
-			if t.Title != "" {
-				todos[id-1].Title = t.Title
-			}
+			todos[id-1].IsActive = t.IsActive
 
-			if t.IsActive != "" {
-				todos[id-1].IsActive = t.IsActive
+			if t.Title != "" && t.Title != nil {
+				todos[id-1].Title = t.Title
 			}
 
 			resp.Status = "Success"
@@ -355,7 +382,7 @@ func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 		} else if r.Method == "DELETE" {
 			resp.Status = "Success"
 			resp.Message = "Success"
-			activities[id-1].DeletedAt = nil
+			activities[id-1].DeletedAt = "2021-12-01T09:23:05.825Z"
 			resp.Data = kosong
 			jData, err := json.Marshal(resp)
 			if err != nil {
