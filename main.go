@@ -3,29 +3,35 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"unicode"
+
+	"github.com/joho/godotenv"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 type Activity struct {
-	ID        int         `json:"id"`
-	Email     string      `json:"email"`
-	Title     string      `json:"title"`
-	CreatedAt string      `json:"created_at"`
-	UpdatedAt string      `json:"updated_at"`
-	DeletedAt interface{} `json:"deleted_at"`
+	ID        int         `gorm:"primaryKey" json:"id"`
+	Email     string      `gorm:"size:255" json:"email"`
+	Title     string      `gorm:"size:255" json:"title"`
+	CreatedAt string      `gorm:"size:255" json:"created_at"`
+	UpdatedAt string      `gorm:"size:255" json:"updated_at"`
+	DeletedAt interface{} `gorm:"type:varchar(255)" json:"deleted_at"`
 }
 
 type Todo struct {
-	ID              int         `json:"id"`
-	ActivityGroupId interface{} `json:"activity_group_id"`
-	Title           interface{} `json:"title"`
-	IsActive        interface{} `json:"is_active"`
-	Priority        interface{} `json:"priority"`
-	CreatedAt       string      `json:"created_at"`
-	UpdatedAt       string      `json:"updated_at"`
-	DeletedAt       interface{} `json:"deleted_at"`
+	ID              int         `gorm:"primaryKey" json:"id"`
+	ActivityGroupId interface{} `gorm:"type:varchar(255)" json:"activity_group_id"`
+	Title           interface{} `gorm:"type:varchar(255)" json:"title"`
+	IsActive        interface{} `gorm:"type:varchar(255)" json:"is_active"`
+	Priority        interface{} `gorm:"type:varchar(255)" json:"priority"`
+	CreatedAt       string      `gorm:"size:255" json:"created_at"`
+	UpdatedAt       string      `gorm:"size:255" json:"updated_at"`
+	DeletedAt       interface{} `gorm:"type:varchar(255)" json:"deleted_at"`
 }
 
 type response struct {
@@ -42,6 +48,20 @@ var activities = []Activity{}
 var todos = []Todo{}
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	dsn := os.Getenv("MYSQL_USER") + ":" + os.Getenv("MYSQL_PASSWORD") + "@tcp(" + os.Getenv("MYSQL_HOST") + ":3306)/" + os.Getenv("MYSQL_DBNAME")
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	if err != nil {
+		fmt.Println("Database Not Connected")
+	} else {
+		db.AutoMigrate(&Activity{})
+		db.AutoMigrate(&Todo{})
+	}
 	// r := mux.NewRouter()
 	http.HandleFunc("/", HelloServer)
 	http.HandleFunc("/activity-groups", ActivityRest)
