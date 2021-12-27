@@ -3,13 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"unicode"
 
-	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -47,14 +45,21 @@ var kosong Kosong
 var activities = []Activity{}
 var todos = []Todo{}
 
+var incActivity int
+
+// var db *gorm.DB
+var err error
+
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	incActivity = 1
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Fatal("Error loading .env file")
+	// }
 
 	dsn := os.Getenv("MYSQL_USER") + ":" + os.Getenv("MYSQL_PASSWORD") + "@tcp(" + os.Getenv("MYSQL_HOST") + ":3306)/" + os.Getenv("MYSQL_DBNAME")
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	// defer db.Close()
 
 	if err != nil {
 		fmt.Println("Database Not Connected")
@@ -64,179 +69,194 @@ func main() {
 	}
 	// r := mux.NewRouter()
 	http.HandleFunc("/", HelloServer)
-	http.HandleFunc("/activity-groups", ActivityRest)
-	http.HandleFunc("/todo-items", TodoRest)
+	http.HandleFunc("/activity-groups", ActivityRest(db))
+	http.HandleFunc("/todo-items", TodoRest(db))
 	http.ListenAndServe(":3030", nil)
 }
 
-func ActivityRest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	switch r.Method {
-	case "POST":
-		decoder := json.NewDecoder(r.Body)
-		var t Activity
-		err := decoder.Decode(&t)
-		if err != nil {
-			fmt.Fprint(w, "Test Error")
-			return
-		}
+func ActivityRest(db *gorm.DB) http.HandlerFunc {
 
-		if t.Title == "" {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case "POST":
+			decoder := json.NewDecoder(r.Body)
+			var t Activity
+			err := decoder.Decode(&t)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+
+			if t.Title == "" {
+				var resp response
+				resp.Status = "Bad Request"
+				resp.Message = "title cannot be null"
+				resp.Data = kosong
+				w.WriteHeader(http.StatusBadRequest)
+
+				jData, err := json.Marshal(resp)
+				if err != nil {
+					fmt.Fprint(w, "Test Error")
+					return
+				}
+				w.Write(jData)
+				return
+			}
+
+			t.CreatedAt = "2021-12-01T09:23:05.825Z"
+			t.UpdatedAt = "2021-12-01T09:23:05.825Z"
+			t.DeletedAt = nil
+			t.ID = incActivity
+
+			incActivity = incActivity + 1
+			// defer db.Close()
+
+			// db.Select("Email", "Title", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&t)
+
+			// t.ID = result.ID
+			activities = append(activities, t)
+
 			var resp response
-			resp.Status = "Bad Request"
-			resp.Message = "title cannot be null"
-			resp.Data = kosong
-			w.WriteHeader(http.StatusBadRequest)
-
+			w.WriteHeader(http.StatusCreated)
+			resp.Status = "Success"
+			resp.Message = "Success"
+			resp.Data = t
 			jData, err := json.Marshal(resp)
 			if err != nil {
 				fmt.Fprint(w, "Test Error")
 				return
 			}
 			w.Write(jData)
-			return
-		}
 
-		t.CreatedAt = "2021-12-01T09:23:05.825Z"
-		t.UpdatedAt = "2021-12-01T09:23:05.825Z"
-		t.DeletedAt = nil
-		t.ID = len(activities) + 1
-		activities = append(activities, t)
-
-		var resp response
-		w.WriteHeader(http.StatusCreated)
-		resp.Status = "Success"
-		resp.Message = "Success"
-		resp.Data = t
-		jData, err := json.Marshal(resp)
-		if err != nil {
-			fmt.Fprint(w, "Test Error")
-			return
-		}
-		w.Write(jData)
-
-	case "GET":
-		var resp response
-		resp.Status = "Success"
-		resp.Message = "Success"
-		data := []Activity{}
-		for i := range activities {
-			if activities[i].DeletedAt == nil {
-				data = append(data, activities[i])
+		case "GET":
+			var resp response
+			resp.Status = "Success"
+			resp.Message = "Success"
+			data := []Activity{}
+			for i := range activities {
+				if activities[i].DeletedAt == nil {
+					data = append(data, activities[i])
+				}
 			}
-		}
-		resp.Data = data
-		jData, err := json.Marshal(resp)
-		if err != nil {
-			fmt.Fprint(w, "Test Error")
-			return
-		}
-		w.Write(jData)
+			resp.Data = data
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			w.Write(jData)
 
-	default:
-		http.Error(w, "", http.StatusBadRequest)
+		default:
+			http.Error(w, "", http.StatusBadRequest)
+		}
 	}
 
 }
 
-func TodoRest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	switch r.Method {
-	case "POST":
-		decoder := json.NewDecoder(r.Body)
-		var t Todo
-		err := decoder.Decode(&t)
-		if err != nil {
-			fmt.Fprint(w, "Test Error")
-			return
-		}
+func TodoRest(db *gorm.DB) http.HandlerFunc {
 
-		if t.ActivityGroupId == "" || t.ActivityGroupId == nil {
-			var resp response
-			resp.Status = "Bad Request"
-			resp.Message = "activity_group_id cannot be null"
-			resp.Data = kosong
-			w.WriteHeader(http.StatusBadRequest)
-
-			jData, err := json.Marshal(resp)
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case "POST":
+			decoder := json.NewDecoder(r.Body)
+			var t Todo
+			err := decoder.Decode(&t)
 			if err != nil {
 				fmt.Fprint(w, "Test Error")
 				return
 			}
-			w.Write(jData)
-			return
-		}
 
-		if t.Title == "" || t.Title == nil {
-			var resp response
-			resp.Status = "Bad Request"
-			resp.Message = "title cannot be null"
-			resp.Data = kosong
-			w.WriteHeader(http.StatusBadRequest)
+			if t.ActivityGroupId == "" || t.ActivityGroupId == nil {
+				var resp response
+				resp.Status = "Bad Request"
+				resp.Message = "activity_group_id cannot be null"
+				resp.Data = kosong
+				w.WriteHeader(http.StatusBadRequest)
 
-			jData, err := json.Marshal(resp)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-			w.Write(jData)
-			return
-		}
-
-		if t.Priority == "" || t.Priority == nil {
-			t.Priority = "very-high"
-		}
-
-		t.IsActive = "1"
-		t.CreatedAt = "2021-12-01T09:23:05.825Z"
-		t.UpdatedAt = "2021-12-01T09:23:05.825Z"
-		t.DeletedAt = nil
-		t.ID = len(todos) + 1
-		todos = append(todos, t)
-
-		t.IsActive = true
-
-		var resp response
-		w.WriteHeader(http.StatusCreated)
-		resp.Status = "Success"
-		resp.Message = "Success"
-		resp.Data = t
-		jData, err := json.Marshal(resp)
-		if err != nil {
-			fmt.Fprint(w, "Test Error")
-			return
-		}
-		w.Write(jData)
-
-	case "GET":
-		var resp response
-		resp.Status = "Success"
-		resp.Message = "Success"
-
-		param1 := r.URL.Query().Get("activity_group_id")
-
-		if param1 != "" {
-
-			data := []Todo{}
-			for i := range todos {
-				if todos[i].ActivityGroupId == param1 {
-					data = append(data, todos[i])
+				jData, err := json.Marshal(resp)
+				if err != nil {
+					fmt.Fprint(w, "Test Error")
+					return
 				}
+				w.Write(jData)
+				return
 			}
 
-			resp.Data = data
-		} else {
-			resp.Data = todos
-		}
-		jData, err := json.Marshal(resp)
-		if err != nil {
-			fmt.Fprint(w, "Test Error")
-			return
-		}
-		w.Write(jData)
+			if t.Title == "" || t.Title == nil {
+				var resp response
+				resp.Status = "Bad Request"
+				resp.Message = "title cannot be null"
+				resp.Data = kosong
+				w.WriteHeader(http.StatusBadRequest)
 
-	default:
-		http.Error(w, "", http.StatusBadRequest)
+				jData, err := json.Marshal(resp)
+				if err != nil {
+					fmt.Fprint(w, "Test Error")
+					return
+				}
+				w.Write(jData)
+				return
+			}
+
+			if t.Priority == "" || t.Priority == nil {
+				t.Priority = "very-high"
+			}
+
+			t.IsActive = "1"
+			t.CreatedAt = "2021-12-01T09:23:05.825Z"
+			t.UpdatedAt = "2021-12-01T09:23:05.825Z"
+			t.DeletedAt = nil
+			t.ID = len(todos) + 1
+			// db.Create(&t)
+
+			todos = append(todos, t)
+
+			t.IsActive = true
+
+			var resp response
+			w.WriteHeader(http.StatusCreated)
+			resp.Status = "Success"
+			resp.Message = "Success"
+			resp.Data = t
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			w.Write(jData)
+
+		case "GET":
+			var resp response
+			resp.Status = "Success"
+			resp.Message = "Success"
+
+			param1 := r.URL.Query().Get("activity_group_id")
+
+			if param1 != "" {
+
+				data := []Todo{}
+				for i := range todos {
+					if todos[i].ActivityGroupId == param1 {
+						data = append(data, todos[i])
+					}
+				}
+
+				resp.Data = data
+			} else {
+				resp.Data = todos
+			}
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			w.Write(jData)
+
+		default:
+			http.Error(w, "", http.StatusBadRequest)
+		}
 	}
 
 }
