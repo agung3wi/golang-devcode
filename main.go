@@ -3,13 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"unicode"
 
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	"github.com/joho/godotenv"
 )
 
 type Activity struct {
@@ -44,219 +43,204 @@ type Kosong struct {
 var kosong Kosong
 var activities = []Activity{}
 var todos = []Todo{}
-
-var incActivity int
+var resp response
 
 // var db *gorm.DB
 var err error
 
 func main() {
-	incActivity = 1
-	// err := godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// dsn := os.Getenv("MYSQL_USER") + ":" + os.Getenv("MYSQL_PASSWORD") + "@tcp(" + os.Getenv("MYSQL_HOST") + ":3306)/" + os.Getenv("MYSQL_DBNAME")
+	// db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
 	// if err != nil {
-	// 	log.Fatal("Error loading .env file")
+	// 	fmt.Println("Database Not Connected")
+	// } else {
+	// 	db.AutoMigrate(&Activity{})
+	// 	db.AutoMigrate(&Todo{})
 	// }
 
-	dsn := os.Getenv("MYSQL_USER") + ":" + os.Getenv("MYSQL_PASSWORD") + "@tcp(" + os.Getenv("MYSQL_HOST") + ":3306)/" + os.Getenv("MYSQL_DBNAME")
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	// defer db.Close()
-
-	if err != nil {
-		fmt.Println("Database Not Connected")
-	} else {
-		db.AutoMigrate(&Activity{})
-		db.AutoMigrate(&Todo{})
-	}
-	// r := mux.NewRouter()
 	http.HandleFunc("/", HelloServer)
-	http.HandleFunc("/activity-groups", ActivityRest(db))
-	http.HandleFunc("/todo-items", TodoRest(db))
 	http.ListenAndServe(":3030", nil)
 }
 
-func ActivityRest(db *gorm.DB) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case "POST":
-			decoder := json.NewDecoder(r.Body)
-			var t Activity
-			err := decoder.Decode(&t)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-
-			if t.Title == "" {
-				var resp response
-				resp.Status = "Bad Request"
-				resp.Message = "title cannot be null"
-				resp.Data = kosong
-				w.WriteHeader(http.StatusBadRequest)
-
-				jData, err := json.Marshal(resp)
-				if err != nil {
-					fmt.Fprint(w, "Test Error")
-					return
-				}
-				w.Write(jData)
-				return
-			}
-
-			t.CreatedAt = "2021-12-01T09:23:05.825Z"
-			t.UpdatedAt = "2021-12-01T09:23:05.825Z"
-			t.DeletedAt = nil
-			t.ID = incActivity
-
-			incActivity = incActivity + 1
-			// defer db.Close()
-
-			// db.Select("Email", "Title", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&t)
-
-			// t.ID = result.ID
-			activities = append(activities, t)
-
-			var resp response
-			w.WriteHeader(http.StatusCreated)
-			resp.Status = "Success"
-			resp.Message = "Success"
-			resp.Data = t
-			jData, err := json.Marshal(resp)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-			w.Write(jData)
-
-		case "GET":
-			var resp response
-			resp.Status = "Success"
-			resp.Message = "Success"
-			data := []Activity{}
-			for i := range activities {
-				if activities[i].DeletedAt == nil {
-					data = append(data, activities[i])
-				}
-			}
-			resp.Data = data
-			jData, err := json.Marshal(resp)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-			w.Write(jData)
-
-		default:
-			http.Error(w, "", http.StatusBadRequest)
+func ActivityRest(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		decoder := json.NewDecoder(r.Body)
+		var activity Activity
+		err := decoder.Decode(&activity)
+		if err != nil {
+			fmt.Fprint(w, "Test Error")
+			return
 		}
+
+		if activity.Title == "" {
+
+			resp.Status = "Bad Request"
+			resp.Message = "title cannot be null"
+			resp.Data = kosong
+			w.WriteHeader(http.StatusBadRequest)
+
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			w.Write(jData)
+			return
+		}
+
+		activity.CreatedAt = "2021-12-01T09:23:05.825Z"
+		activity.UpdatedAt = "2021-12-01T09:23:05.825Z"
+		activity.DeletedAt = nil
+		activity.ID = len(activities) + 1
+
+		// defer db.Close()
+
+		// db.Select("Email", "Title", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&t)
+
+		// activity.ID = result.ID
+		activities = append(activities, activity)
+
+		w.WriteHeader(http.StatusCreated)
+		resp.Status = "Success"
+		resp.Message = "Success"
+		resp.Data = activity
+		jData, err := json.Marshal(resp)
+		if err != nil {
+			fmt.Fprint(w, "Test Error")
+			return
+		}
+		w.Write(jData)
+
+	case "GET":
+
+		resp.Status = "Success"
+		resp.Message = "Success"
+		data := []Activity{}
+		for i := range activities {
+			if activities[i].DeletedAt == nil {
+				data = append(data, activities[i])
+			}
+		}
+		resp.Data = data
+		jData, err := json.Marshal(resp)
+		if err != nil {
+			fmt.Fprint(w, "Test Error")
+			return
+		}
+		w.Write(jData)
+
+	default:
+		http.Error(w, "", http.StatusBadRequest)
 	}
 
 }
 
-func TodoRest(db *gorm.DB) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case "POST":
-			decoder := json.NewDecoder(r.Body)
-			var t Todo
-			err := decoder.Decode(&t)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-
-			if t.ActivityGroupId == "" || t.ActivityGroupId == nil {
-				var resp response
-				resp.Status = "Bad Request"
-				resp.Message = "activity_group_id cannot be null"
-				resp.Data = kosong
-				w.WriteHeader(http.StatusBadRequest)
-
-				jData, err := json.Marshal(resp)
-				if err != nil {
-					fmt.Fprint(w, "Test Error")
-					return
-				}
-				w.Write(jData)
-				return
-			}
-
-			if t.Title == "" || t.Title == nil {
-				var resp response
-				resp.Status = "Bad Request"
-				resp.Message = "title cannot be null"
-				resp.Data = kosong
-				w.WriteHeader(http.StatusBadRequest)
-
-				jData, err := json.Marshal(resp)
-				if err != nil {
-					fmt.Fprint(w, "Test Error")
-					return
-				}
-				w.Write(jData)
-				return
-			}
-
-			if t.Priority == "" || t.Priority == nil {
-				t.Priority = "very-high"
-			}
-
-			t.IsActive = "1"
-			t.CreatedAt = "2021-12-01T09:23:05.825Z"
-			t.UpdatedAt = "2021-12-01T09:23:05.825Z"
-			t.DeletedAt = nil
-			t.ID = len(todos) + 1
-			// db.Create(&t)
-
-			todos = append(todos, t)
-
-			t.IsActive = true
-
-			var resp response
-			w.WriteHeader(http.StatusCreated)
-			resp.Status = "Success"
-			resp.Message = "Success"
-			resp.Data = t
-			jData, err := json.Marshal(resp)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-			w.Write(jData)
-
-		case "GET":
-			var resp response
-			resp.Status = "Success"
-			resp.Message = "Success"
-
-			param1 := r.URL.Query().Get("activity_group_id")
-
-			if param1 != "" {
-
-				data := []Todo{}
-				for i := range todos {
-					if todos[i].ActivityGroupId == param1 {
-						data = append(data, todos[i])
-					}
-				}
-
-				resp.Data = data
-			} else {
-				resp.Data = todos
-			}
-			jData, err := json.Marshal(resp)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-			w.Write(jData)
-
-		default:
-			http.Error(w, "", http.StatusBadRequest)
+func TodoRest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case "POST":
+		decoder := json.NewDecoder(r.Body)
+		var t Todo
+		err := decoder.Decode(&t)
+		if err != nil {
+			fmt.Fprint(w, "Test Error")
+			return
 		}
+
+		if t.ActivityGroupId == "" || t.ActivityGroupId == nil {
+
+			resp.Status = "Bad Request"
+			resp.Message = "activity_group_id cannot be null"
+			resp.Data = kosong
+			w.WriteHeader(http.StatusBadRequest)
+
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			w.Write(jData)
+			return
+		}
+
+		if t.Title == "" || t.Title == nil {
+
+			resp.Status = "Bad Request"
+			resp.Message = "title cannot be null"
+			resp.Data = kosong
+			w.WriteHeader(http.StatusBadRequest)
+
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			w.Write(jData)
+			return
+		}
+
+		if t.Priority == "" || t.Priority == nil {
+			t.Priority = "very-high"
+		}
+
+		t.IsActive = "1"
+		t.CreatedAt = "2021-12-01T09:23:05.825Z"
+		t.UpdatedAt = "2021-12-01T09:23:05.825Z"
+		t.DeletedAt = nil
+		t.ID = len(todos) + 1
+		// db.Create(&t)
+
+		todos = append(todos, t)
+
+		t.IsActive = true
+
+		w.WriteHeader(http.StatusCreated)
+		resp.Status = "Success"
+		resp.Message = "Success"
+		resp.Data = t
+		jData, err := json.Marshal(resp)
+		if err != nil {
+			fmt.Fprint(w, "Test Error")
+			return
+		}
+		w.Write(jData)
+
+	case "GET":
+
+		resp.Status = "Success"
+		resp.Message = "Success"
+
+		param1 := r.URL.Query().Get("activity_group_id")
+
+		if param1 != "" {
+
+			data := []Todo{}
+			for i := range todos {
+				if todos[i].ActivityGroupId == param1 {
+					data = append(data, todos[i])
+				}
+			}
+
+			resp.Data = data
+		} else {
+			resp.Data = todos
+		}
+		jData, err := json.Marshal(resp)
+		if err != nil {
+			fmt.Fprint(w, "Test Error")
+			return
+		}
+		w.Write(jData)
+
+	default:
+		http.Error(w, "", http.StatusBadRequest)
 	}
 
 }
@@ -271,7 +255,7 @@ func isInt(s string) bool {
 }
 
 func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
-	var resp response
+
 	id, err := strconv.Atoi(ids)
 	if err != nil {
 		return
@@ -303,16 +287,17 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 			w.Write(jData)
 			return
 		} else if r.Method == "PATCH" {
+			var activity Activity
 			decoder := json.NewDecoder(r.Body)
-			var t Activity
-			err := decoder.Decode(&t)
+
+			err := decoder.Decode(&activity)
 			if err != nil {
 				fmt.Fprint(w, "Test Error")
 				return
 			}
 
-			if t.Title == "" {
-				var resp response
+			if activity.Title == "" {
+
 				resp.Status = "Bad Request"
 				resp.Message = "title cannot be null"
 				resp.Data = kosong
@@ -327,9 +312,9 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 				return
 			}
 
-			activities[id-1].Title = t.Title
-			if t.Email != "" {
-				activities[id-1].Email = t.Email
+			activities[id-1].Title = activity.Title
+			if activity.Email != "" {
+				activities[id-1].Email = activity.Email
 			}
 
 			resp.Status = "Success"
@@ -362,7 +347,7 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 }
 
 func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
-	var resp response
+
 	id, err := strconv.Atoi(ids)
 	if err != nil {
 		return
@@ -442,18 +427,29 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 
 	var path = r.URL.Path
 	lenPath := len(path)
-	if lenPath > 17 {
-		if path[0:17] == "/activity-groups/" && isInt(path[17:lenPath]) {
-			ids := path[17:lenPath]
-			HandleParamActivity(w, r, ids)
-			return
-		}
+
+	if path == "/todo-items" {
+		TodoRest(w, r)
+		return
+	}
+
+	if path == "/activity-groups" {
+		ActivityRest(w, r)
+		return
 	}
 
 	if lenPath > 12 {
 		if path[0:12] == "/todo-items/" && isInt(path[12:lenPath]) {
 			ids := path[12:lenPath]
 			HandleParamTodo(w, r, ids)
+			return
+		}
+	}
+
+	if lenPath > 17 {
+		if path[0:17] == "/activity-groups/" && isInt(path[17:lenPath]) {
+			ids := path[17:lenPath]
+			HandleParamActivity(w, r, ids)
 			return
 		}
 	}
