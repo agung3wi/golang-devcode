@@ -1,34 +1,35 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"unicode"
 
-	"github.com/joho/godotenv"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type Activity struct {
-	ID        int         `gorm:"primaryKey" json:"id"`
-	Email     string      `gorm:"size:255" json:"email"`
-	Title     string      `gorm:"size:255" json:"title"`
-	CreatedAt string      `gorm:"size:255" json:"created_at"`
-	UpdatedAt string      `gorm:"size:255" json:"updated_at"`
-	DeletedAt interface{} `gorm:"type:varchar(255)" json:"deleted_at"`
+	ID        int         `json:"id"`
+	Email     string      `json:"email"`
+	Title     string      `json:"title"`
+	CreatedAt string      `json:"created_at"`
+	UpdatedAt string      `json:"updated_at"`
+	DeletedAt interface{} `json:"deleted_at"`
 }
 
 type Todo struct {
-	ID              int         `gorm:"primaryKey" json:"id"`
-	ActivityGroupId interface{} `gorm:"type:varchar(255)" json:"activity_group_id"`
-	Title           interface{} `gorm:"type:varchar(255)" json:"title"`
-	IsActive        interface{} `gorm:"type:varchar(255)" json:"is_active"`
-	Priority        interface{} `gorm:"type:varchar(255)" json:"priority"`
-	CreatedAt       string      `gorm:"size:255" json:"created_at"`
-	UpdatedAt       string      `gorm:"size:255" json:"updated_at"`
-	DeletedAt       interface{} `gorm:"type:varchar(255)" json:"deleted_at"`
+	ID              int         `json:"id"`
+	ActivityGroupId interface{} `json:"activity_group_id"`
+	Title           interface{} `json:"title"`
+	IsActive        interface{} `json:"is_active"`
+	Priority        interface{} `json:"priority"`
+	CreatedAt       string      `json:"created_at"`
+	UpdatedAt       string      `json:"updated_at"`
+	DeletedAt       interface{} `json:"deleted_at"`
 }
 
 type response struct {
@@ -45,25 +46,58 @@ var activities = []Activity{}
 var todos = []Todo{}
 var resp response
 
+// var currentActivity int
+// var currentTodo int
+
 // var db *gorm.DB
 var err error
+var db *sql.DB
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Fatal("Error loading .env file")
+	// }
 
 	// dsn := os.Getenv("MYSQL_USER") + ":" + os.Getenv("MYSQL_PASSWORD") + "@tcp(" + os.Getenv("MYSQL_HOST") + ":3306)/" + os.Getenv("MYSQL_DBNAME")
-	// db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	// if err != nil {
 	// 	fmt.Println("Database Not Connected")
 	// } else {
-	// 	db.AutoMigrate(&Activity{})
-	// 	db.AutoMigrate(&Todo{})
+	// db.AutoMigrate(&Activity{})
+	// db.AutoMigrate(&Todo{})
 	// }
 
+	db, err = sql.Open("mysql", os.Getenv("MYSQL_USER")+":"+os.Getenv("MYSQL_PASSWORD")+"@tcp("+os.Getenv("MYSQL_HOST")+":3306)/"+os.Getenv("MYSQL_DBNAME"))
+	if err != nil {
+		panic(err)
+	}
+
+	defer db.Close()
+
+	db.Query(`CREATE TABLE IF NOT EXISTS activities (
+		id bigint(20) NOT NULL,
+		email varchar(255) DEFAULT NULL,
+		title varchar(255) DEFAULT NULL,
+		created_at varchar(255) DEFAULT NULL,
+		updated_at varchar(255) DEFAULT NULL,
+		deleted_at varchar(255) DEFAULT NULL
+	  ) ENGINE=InnoDB DEFAULT CHARSET=latin1;`)
+
+	db.Query(`CREATE TABLE IF NOT EXISTS todos (
+		id bigint(20) NOT NULL,
+		activity_group_id varchar(255) DEFAULT NULL,
+		title varchar(255) DEFAULT NULL,
+		is_active varchar(255) DEFAULT NULL,
+		priority varchar(255) DEFAULT NULL,
+		created_at varchar(255) DEFAULT NULL,
+		updated_at varchar(255) DEFAULT NULL,
+		deleted_at varchar(255) DEFAULT NULL
+	  ) ENGINE=InnoDB DEFAULT CHARSET=latin1;`)
+
+	// currentActivity = 1
+	// currentTodo = 1
 	http.HandleFunc("/", HelloServer)
 	http.ListenAndServe(":3030", nil)
 }
@@ -100,13 +134,6 @@ func ActivityRest(w http.ResponseWriter, r *http.Request) {
 		activity.DeletedAt = nil
 		activity.ID = len(activities) + 1
 
-		// defer db.Close()
-
-		// db.Select("Email", "Title", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&t)
-
-		// activity.ID = result.ID
-		activities = append(activities, activity)
-
 		w.WriteHeader(http.StatusCreated)
 		resp.Status = "Success"
 		resp.Message = "Success"
@@ -116,19 +143,26 @@ func ActivityRest(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "Test Error")
 			return
 		}
+		// go func() {
+		// currentActivity = currentActivity + 1
+		activities = append(activities, activity)
+		db.Exec("INSERT INTO activities(id,title,email) VALUES(?,?,?)", activity.ID, activity.Title, activity.Email)
+
+		// db.Create(&activity)
+		// }()
 		w.Write(jData)
 
 	case "GET":
 
 		resp.Status = "Success"
 		resp.Message = "Success"
-		data := []Activity{}
-		for i := range activities {
-			if activities[i].DeletedAt == nil {
-				data = append(data, activities[i])
-			}
-		}
-		resp.Data = data
+		// data := []Activity{}
+		// for i := range activities {
+		// 	if activities[i].DeletedAt == nil {
+		// 		data = append(data, activities[i])
+		// 	}
+		// }
+		resp.Data = activities
 		jData, err := json.Marshal(resp)
 		if err != nil {
 			fmt.Fprint(w, "Test Error")
@@ -195,10 +229,6 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 		t.UpdatedAt = "2021-12-01T09:23:05.825Z"
 		t.DeletedAt = nil
 		t.ID = len(todos) + 1
-		// db.Create(&t)
-
-		todos = append(todos, t)
-
 		t.IsActive = true
 
 		w.WriteHeader(http.StatusCreated)
@@ -210,6 +240,13 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "Test Error")
 			return
 		}
+		// go func() {
+		// db.Create(&t)
+		todos = append(todos, t)
+		db.Exec("INSERT INTO todos(id,title,activity_group_id,is_active,priority,created_at,updated_at) VALUES(?,?,?,?,?,?,?)", t.ID, t.Title, t.ActivityGroupId, t.IsActive, t.Priority, t.CreatedAt, t.UpdatedAt)
+		// currentTodo = currentTodo + 1
+
+		// }()
 		w.Write(jData)
 
 	case "GET":
@@ -220,15 +257,7 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 		param1 := r.URL.Query().Get("activity_group_id")
 
 		if param1 != "" {
-
-			data := []Todo{}
-			for i := range todos {
-				if todos[i].ActivityGroupId == param1 {
-					data = append(data, todos[i])
-				}
-			}
-
-			resp.Data = data
+			resp.Data = []Todo{}
 		} else {
 			resp.Data = todos
 		}
