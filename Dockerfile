@@ -13,7 +13,7 @@ COPY . .
 # build binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags '-S -N' -o binary *.go
 
-FROM scratch
+FROM alpine:latest
 
 COPY --from=app-builder /app/binary /app/binary
 

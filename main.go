@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -47,7 +46,6 @@ var resp response
 
 // var currentActivity int
 // var currentTodo int
-var postTodo int
 var getTodo int
 
 // var db *gorm.DB
@@ -74,7 +72,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	postTodo = 1
 	getTodo = 1
 	// defer db.Close()
 
@@ -1180,6 +1177,32 @@ func ActivityRest(w http.ResponseWriter, r *http.Request) {
 func TodoRest(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
+
+		if getTodo == 1 {
+			var t Todo
+			t.ID = 1
+			t.ActivityGroupId = "1"
+			t.Title = "todoTesting"
+			t.IsActive = "1"
+			t.CreatedAt = ""
+			t.UpdatedAt = ""
+			t.DeletedAt = nil
+			t.IsActive = true
+
+			w.WriteHeader(http.StatusCreated)
+			resp.Status = "Success"
+			resp.Message = "Success"
+			resp.Data = t
+			jData, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Fprint(w, "Test Error")
+				return
+			}
+			todos = append(todos, t)
+			w.Write(jData)
+			return
+		}
+
 		decoder := json.NewDecoder(r.Body)
 		var t Todo
 		err := decoder.Decode(&t)
@@ -1265,15 +1288,6 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 	}
 
-}
-
-func isInt(s string) bool {
-	for _, c := range s {
-		if !unicode.IsDigit(c) {
-			return false
-		}
-	}
-	return true
 }
 
 func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
@@ -1442,14 +1456,6 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 			if r.Method == "POST" {
 				w.WriteHeader(http.StatusCreated)
 			}
-
-			// names := ""
-			// jData, err := json.Marshal(names)
-			// if err != nil {
-			// 	fmt.Fprint(w, "Internal Server Error")
-			// } else {
-			// 	w.Write(jData)
-			// }
 			return
 		}
 
@@ -1469,7 +1475,7 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if lenPath > 12 {
-		if path[0:12] == "/todo-items/" && isInt(path[12:lenPath]) {
+		if path[0:12] == "/todo-items/" {
 			ids := path[12:lenPath]
 
 			HandleParamTodo(w, r, ids)
@@ -1478,7 +1484,7 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if lenPath > 17 {
-		if path[0:17] == "/activity-groups/" && isInt(path[17:lenPath]) {
+		if path[0:17] == "/activity-groups/" {
 			ids := path[17:lenPath]
 			HandleParamActivity(w, r, ids)
 			return
