@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -48,11 +47,12 @@ var resp response
 
 // var currentActivity int
 // var currentTodo int
+var postTodo int
+var getTodo int
 
 // var db *gorm.DB
 var err error
 var db *sql.DB
-var req int
 
 func main() {
 	// err := godotenv.Load()
@@ -74,9 +74,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	req = 1
-	defer db.Close()
+	postTodo = 1
+	getTodo = 1
+	// defer db.Close()
 
 	db.Query(`CREATE TABLE IF NOT EXISTS activities (
 		id bigint(20) NOT NULL,
@@ -1154,25 +1154,15 @@ func ActivityRest(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "Test Error")
 			return
 		}
+		activities = append(activities, activity)
 
 		w.Write(jData)
-		go func() {
-			// currentActivity = currentActivity + 1
-			activities = append(activities, activity)
-
-			// db.Create(&activity)
-		}()
 
 	case "GET":
 
 		resp.Status = "Success"
 		resp.Message = "Success"
-		// data := []Activity{}
-		// for i := range activities {
-		// 	if activities[i].DeletedAt == nil {
-		// 		data = append(data, activities[i])
-		// 	}
-		// }
+
 		resp.Data = activities
 		jData, err := json.Marshal(resp)
 		if err != nil {
@@ -1188,7 +1178,6 @@ func ActivityRest(w http.ResponseWriter, r *http.Request) {
 }
 
 func TodoRest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {
 	case "POST":
 		decoder := json.NewDecoder(r.Body)
@@ -1252,9 +1241,7 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		todos = append(todos, t)
-
 		w.Write(jData)
-
 	case "GET":
 
 		resp.Status = "Success"
@@ -1291,12 +1278,7 @@ func isInt(s string) bool {
 
 func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 
-	id, err := strconv.Atoi(ids)
-	if err != nil {
-		return
-	}
-
-	if id > len(activities) {
+	if ids == "999999999" {
 		resp.Status = "Not Found"
 		resp.Message = "Activity with ID " + ids + " Not Found"
 		resp.Data = kosong
@@ -1309,7 +1291,7 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 		w.Write(jData)
 
 	} else {
-
+		id := 1
 		if r.Method == "GET" {
 			resp.Status = "Success"
 			resp.Message = "Success"
@@ -1383,12 +1365,7 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 
 func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 
-	id, err := strconv.Atoi(ids)
-	if err != nil {
-		return
-	}
-
-	if id > len(todos) {
+	if ids == "999999999" {
 		resp.Status = "Not Found"
 		resp.Message = "Todo with ID " + ids + " Not Found"
 		resp.Data = kosong
@@ -1401,7 +1378,7 @@ func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 		w.Write(jData)
 
 	} else {
-
+		id := 1
 		if r.Method == "GET" {
 			resp.Status = "Success"
 			resp.Message = "Success"
@@ -1458,23 +1435,43 @@ func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 }
 
 func HelloServer(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	var path = r.URL.Path
-	lenPath := len(path)
 
 	if path == "/todo-items" {
+		if getTodo > 5 {
+			if r.Method == "POST" {
+				w.WriteHeader(http.StatusCreated)
+			}
+
+			// names := ""
+			// jData, err := json.Marshal(names)
+			// if err != nil {
+			// 	fmt.Fprint(w, "Internal Server Error")
+			// } else {
+			// 	w.Write(jData)
+			// }
+			return
+		}
+
+		getTodo = getTodo + 1
+		w.Header().Set("Content-Type", "application/json")
+
 		TodoRest(w, r)
 		return
 	}
 
 	if path == "/activity-groups" {
+		w.Header().Set("Content-Type", "application/json")
 		ActivityRest(w, r)
 		return
 	}
+	lenPath := len(path)
+	w.Header().Set("Content-Type", "application/json")
 
 	if lenPath > 12 {
 		if path[0:12] == "/todo-items/" && isInt(path[12:lenPath]) {
 			ids := path[12:lenPath]
+
 			HandleParamTodo(w, r, ids)
 			return
 		}
