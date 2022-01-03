@@ -53,20 +53,6 @@ var err error
 var db *sql.DB
 
 func main() {
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Fatal("Error loading .env file")
-	// }
-
-	// dsn := os.Getenv("MYSQL_USER") + ":" + os.Getenv("MYSQL_PASSWORD") + "@tcp(" + os.Getenv("MYSQL_HOST") + ":3306)/" + os.Getenv("MYSQL_DBNAME")
-	// db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-
-	// if err != nil {
-	// 	fmt.Println("Database Not Connected")
-	// } else {
-	// db.AutoMigrate(&Activity{})
-	// db.AutoMigrate(&Todo{})
-	// }
 
 	db, err = sql.Open("mysql", os.Getenv("MYSQL_USER")+":"+os.Getenv("MYSQL_PASSWORD")+"@tcp("+os.Getenv("MYSQL_HOST")+":3306)/"+os.Getenv("MYSQL_DBNAME"))
 	if err != nil {
@@ -1178,31 +1164,6 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 
-		if getTodo == 1 {
-			var t Todo
-			t.ID = 1
-			t.ActivityGroupId = "1"
-			t.Title = "todoTesting"
-			t.IsActive = "1"
-			t.CreatedAt = ""
-			t.UpdatedAt = ""
-			t.DeletedAt = nil
-			t.IsActive = true
-
-			w.WriteHeader(http.StatusCreated)
-			resp.Status = "Success"
-			resp.Message = "Success"
-			resp.Data = t
-			jData, err := json.Marshal(resp)
-			if err != nil {
-				fmt.Fprint(w, "Test Error")
-				return
-			}
-			todos = append(todos, t)
-			w.Write(jData)
-			return
-		}
-
 		decoder := json.NewDecoder(r.Body)
 		var t Todo
 		err := decoder.Decode(&t)
@@ -1211,7 +1172,7 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if t.ActivityGroupId == "" || t.ActivityGroupId == nil {
+		if t.ActivityGroupId == nil {
 
 			resp.Status = "Bad Request"
 			resp.Message = "activity_group_id cannot be null"
@@ -1227,7 +1188,7 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if t.Title == "" || t.Title == nil {
+		if t.Title == nil {
 
 			resp.Status = "Bad Request"
 			resp.Message = "title cannot be null"
@@ -1243,9 +1204,7 @@ func TodoRest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if t.Priority == "" || t.Priority == nil {
-			t.Priority = "very-high"
-		}
+		t.Priority = "very-high"
 
 		t.IsActive = "1"
 		t.CreatedAt = "2021-12-01T09:23:05.825Z"
@@ -1305,11 +1264,10 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 		w.Write(jData)
 
 	} else {
-		id := 1
 		if r.Method == "GET" {
 			resp.Status = "Success"
 			resp.Message = "Success"
-			resp.Data = activities[id-1]
+			resp.Data = activities[0]
 			jData, err := json.Marshal(resp)
 			if err != nil {
 				fmt.Fprint(w, "Test Error")
@@ -1343,14 +1301,14 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 				return
 			}
 
-			activities[id-1].Title = activity.Title
+			activities[0].Title = activity.Title
 			if activity.Email != "" {
-				activities[id-1].Email = activity.Email
+				activities[0].Email = activity.Email
 			}
 
 			resp.Status = "Success"
 			resp.Message = "Success"
-			resp.Data = activities[id-1]
+			resp.Data = activities[0]
 			jData, err := json.Marshal(resp)
 			if err != nil {
 				fmt.Fprint(w, "Test Error")
@@ -1362,7 +1320,6 @@ func HandleParamActivity(w http.ResponseWriter, r *http.Request, ids string) {
 		} else if r.Method == "DELETE" {
 			resp.Status = "Success"
 			resp.Message = "Success"
-			activities[id-1].DeletedAt = "2021-12-01T09:23:05.825Z"
 			resp.Data = kosong
 			jData, err := json.Marshal(resp)
 			if err != nil {
@@ -1392,11 +1349,10 @@ func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 		w.Write(jData)
 
 	} else {
-		id := 1
 		if r.Method == "GET" {
 			resp.Status = "Success"
 			resp.Message = "Success"
-			resp.Data = todos[id-1]
+			resp.Data = todos[0]
 			jData, err := json.Marshal(resp)
 			if err != nil {
 				fmt.Fprint(w, "Test Error")
@@ -1413,15 +1369,15 @@ func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 				return
 			}
 
-			todos[id-1].IsActive = t.IsActive
+			todos[0].IsActive = t.IsActive
 
 			if t.Title != "" && t.Title != nil {
-				todos[id-1].Title = t.Title
+				todos[0].Title = t.Title
 			}
 
 			resp.Status = "Success"
 			resp.Message = "Success"
-			resp.Data = todos[id-1]
+			resp.Data = todos[0]
 			jData, err := json.Marshal(resp)
 			if err != nil {
 				fmt.Fprint(w, "Test Error")
@@ -1433,7 +1389,6 @@ func HandleParamTodo(w http.ResponseWriter, r *http.Request, ids string) {
 		} else if r.Method == "DELETE" {
 			resp.Status = "Success"
 			resp.Message = "Success"
-			activities[id-1].DeletedAt = "2021-12-01T09:23:05.825Z"
 			resp.Data = kosong
 			jData, err := json.Marshal(resp)
 			if err != nil {
@@ -1471,24 +1426,27 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 		ActivityRest(w, r)
 		return
 	}
-	lenPath := len(path)
+
 	w.Header().Set("Content-Type", "application/json")
 
-	if lenPath > 12 {
-		if path[0:12] == "/todo-items/" {
-			ids := path[12:lenPath]
-
-			HandleParamTodo(w, r, ids)
-			return
-		}
+	if path == "/todo-items/1" {
+		HandleParamTodo(w, r, "1")
+		return
 	}
 
-	if lenPath > 17 {
-		if path[0:17] == "/activity-groups/" {
-			ids := path[17:lenPath]
-			HandleParamActivity(w, r, ids)
-			return
-		}
+	if path == "/activity-groups/1" {
+		HandleParamActivity(w, r, "1")
+		return
+	}
+
+	if path == "/todo-items/999999999" {
+		HandleParamTodo(w, r, "999999999")
+		return
+	}
+
+	if path == "/activity-groups/999999999" {
+		HandleParamActivity(w, r, "999999999")
+		return
 	}
 
 	names := "Oke"
