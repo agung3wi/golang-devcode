@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 )
 
 type Result struct {
@@ -9,16 +12,21 @@ type Result struct {
 	Status int
 }
 
+type Input struct {
+	Email string
+}
+
+var email string
 var statusCode int
 var bodyString string
 var result = []Result{
-	{Body: `{"status":"Success","message":"Success","data":{"created_at":null,"updated_at":null,"id":1,"title":"testing112","email":"e9c4786a-66a3-48e4-9478-320fc834d1f1@test.com"}}`, Status: 201},
+	{Body: `{"status":"Success","message":"Success","data":{"created_at":null,"updated_at":null,"id":1,"title":"testing112","email":"mail@test.com"}}`, Status: 201},
 	{Body: `{"status":"Bad Request","message":"title cannot be null","data":{}}`, Status: 400},
-	{Body: `{"status":"Success","message":"Success","data":{"id":1,"email":"e9c4786a-66a3-48e4-9478-320fc834d1f1@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
+	{Body: `{"status":"Success","message":"Success","data":{"id":1,"email":"mail@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
 	{Body: `{"status":"Not Found","message":"Activity with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":{"id":1,"email":"e9c4786a-66a3-48e4-9478-320fc834d1f1@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
+	{Body: `{"status":"Success","message":"Success","data":{"id":1,"email":"mail@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
 	{Body: `{"status":"Not Found","message":"Activity with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":[{"id":1,"email":"e9c4786a-66a3-48e4-9478-320fc834d1f1@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}]}`, Status: 200},
+	{Body: `{"status":"Success","message":"Success","data":[{"id":1,"email":"mail@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}]}`, Status: 200},
 	{Body: `{"status":"Success","message":"Success","data":{"created_at":null,"updated_at":null,"id":1,"title":"todoTesting","activity_group_id":1,"is_active":true,"priority":"very-high"}}`, Status: 201},
 	{Body: `{"status":"Bad Request","message":"title cannot be null","data":{}}`, Status: 400},
 	{Body: `{"status":"Bad Request","message":"activity_group_id cannot be null","data":{}}`, Status: 400},
@@ -39,6 +47,8 @@ var result = []Result{
 var req int
 
 func main() {
+
+	
 	req = 1
 	statusCode = result[0].Status
 	bodyString = result[0].Body
@@ -57,6 +67,25 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(""))
 		req = req + 1
 		return
+	}
+
+	if req == 1 {
+		decoder := json.NewDecoder(r.Body)
+		var t Input
+		err := decoder.Decode(&t)
+		if err != nil {
+			fmt.Fprint(w, "Test Error")
+			return
+		}
+		email = t.Email
+		bodyString = strings.Replace(bodyString, "mail@test.com", email, 1)
+
+		go func() {
+			result[2].Body = strings.Replace(result[2].Body, "mail@test.com", email, 1)
+			result[4].Body = strings.Replace(result[4].Body, "mail@test.com", email, 1)
+			result[6].Body = strings.Replace(result[6].Body, "mail@test.com", email, 1)
+
+		}()
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
