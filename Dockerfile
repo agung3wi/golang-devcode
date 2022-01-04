@@ -13,7 +13,10 @@ COPY . .
 # build binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags '-S -N' -o binary *.go
 
-FROM alpine:latest
+FROM nginx:alpine
+
+COPY ./default.conf /etc/nginx/conf.d/default.conf
+
 
 COPY --from=app-builder /app/binary /app/binary
 
