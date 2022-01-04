@@ -48,7 +48,6 @@ var req int
 
 func main() {
 
-	
 	req = 1
 	statusCode = result[0].Status
 	bodyString = result[0].Body
@@ -57,15 +56,11 @@ func main() {
 }
 
 func HelloServer(w http.ResponseWriter, r *http.Request) {
-
-	if req > 1021 {
-		w.WriteHeader(200)
+	if req > 21 {
+		if r.Method == "POST" {
+			w.WriteHeader(http.StatusCreated)
+		}
 		w.Write([]byte(""))
-		return
-	} else if req > 21 {
-		w.WriteHeader(201)
-		w.Write([]byte(""))
-		req = req + 1
 		return
 	}
 
