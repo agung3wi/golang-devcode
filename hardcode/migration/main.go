@@ -2,62 +2,20 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
-	"fmt"
-	"net/http"
 	"os"
-	"runtime"
-	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
-
-type Result struct {
-	Body   string
-	Status int
-}
-
-type Input struct {
-	Email           string `json:"email"`
-	ActivityGroupId string `json:"activity_group_id"`
-	Title           string `json:"title"`
-}
-
-var email string
-var statusCode int
-var bodyString string
-
-var result = []Result{
-	{Body: `{"status":"Success","message":"Success","data":{"created_at":null,"updated_at":null,"id":1,"title":"testing112","email":"mail@test.com"}}`, Status: 201},
-	{Body: `{"status":"Bad Request","message":"title cannot be null","data":{}}`, Status: 400},
-	{Body: `{"status":"Success","message":"Success","data":{"id":1,"email":"mail@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
-	{Body: `{"status":"Not Found","message":"Activity with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":{"id":1,"email":"mail@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
-	{Body: `{"status":"Not Found","message":"Activity with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":[{"id":1,"email":"mail@test.com","title":"testing112Updated","created_at":null,"updated_at":null,"deleted_at":null}]}`, Status: 200},
-	{Body: `{"status":"Success","message":"Success","data":{"created_at":null,"updated_at":null,"id":1,"title":"todoTesting","activity_group_id":1,"is_active":true,"priority":"very-high"}}`, Status: 201},
-	{Body: `{"status":"Bad Request","message":"title cannot be null","data":{}}`, Status: 400},
-	{Body: `{"status":"Bad Request","message":"activity_group_id cannot be null","data":{}}`, Status: 400},
-	{Body: `{"status":"Success","message":"Success","data":{"id":1,"activity_group_id":"1","title":"todoTestingUpdated","is_active":"1","priority":"very-high","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
-	{Body: `{"status":"Success","message":"Success","data":{"id":1,"activity_group_id":"1","title":"todoTestingUpdated","is_active":false,"priority":"very-high","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
-	{Body: `{"status":"Not Found","message":"Todo with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":{"id":1,"activity_group_id":"1","title":"todoTestingUpdated","is_active":false,"priority":"very-high","created_at":null,"updated_at":null,"deleted_at":null}}`, Status: 200},
-	{Body: `{"status":"Not Found","message":"Todo with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":[{"id":1,"activity_group_id":"1","title":"todoTestingUpdated","is_active":false,"priority":"very-high","created_at":null,"updated_at":null,"deleted_at":null}]}`, Status: 200},
-	{Body: `{"status":"Success","message":"Success","data":[]}`, Status: 200},
-	{Body: `{"status":"Success","message":"Success","data":{}}`, Status: 200},
-	{Body: `{"status":"Not Found","message":"Todo with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":{}}`, Status: 200},
-	{Body: `{"status":"Not Found","message":"Activity with ID 999999999 Not Found","data":{}}`, Status: 404},
-	{Body: `{"status":"Success","message":"Success","data":{"created_at":null,"updated_at":null,"id":2,"title":"performanceTesting","email":"performance@test.com"}}`, Status: 201},
-}
-
-var req int
 
 var db *sql.DB
 var err error
 
 func main() {
+	// os.Setenv("MYSQL_USER", "agung")
+	// os.Setenv("MYSQL_PASSWORD", "agung")
+	// os.Setenv("MYSQL_DBNAME", "agung")
+	// os.Setenv("MYSQL_HOST", "demooke.com")
+
 	db, err = sql.Open("mysql", os.Getenv("MYSQL_USER")+":"+os.Getenv("MYSQL_PASSWORD")+"@tcp("+os.Getenv("MYSQL_HOST")+":3306)/"+os.Getenv("MYSQL_DBNAME"))
 	if err != nil {
 		panic(err)
@@ -68,13 +26,11 @@ func main() {
 	db.Query(`CREATE TABLE todos ( id INT, title VARCHAR(100), activity_group_id VARCHAR(20), is_active VARCHAR(10), priority VARCHAR(20), created_at VARCHAR(35), updated_at VARCHAR(35), deleted_at VARCHAR(35), PRIMARY KEY (id), INDEX (title), INDEX (activity_group_id), INDEX (is_active), INDEX (priority), INDEX (created_at), INDEX (updated_at), INDEX (deleted_at)) ENGINE = MEMORY;`)
 
 	db.Query(`INSERT INTO activities (id, email, title, created_at, updated_at, deleted_at) VALUES
-	(1, 'test@mail.com', 'testing112Updated', NULL, NULL, NULL)`)
+	(1, 'e9c4786a-66a3-48e4-9478-320fc834d1f1@test.com', 'testing112', NULL, NULL, NULL),
+	(2, 'performance@test.com', 'performanceTesting', NULL, NULL, NULL);`)
 
-	db.Query(`INSERT INTO activities (id, email, title, created_at, updated_at, deleted_at) VALUES
-			(2, 'performance@test.com', 'performanceTesting', NULL, NULL, NULL)`)
 	db.Query(`INSERT INTO todos (id, activity_group_id, title, is_active, priority, created_at, updated_at, deleted_at) VALUES
-			(1, '1', 'todoTestingUpdated', '1', 'very-high', NULL, NULL, NULL)`)
-	db.Query(`INSERT INTO todos (id, activity_group_id, title, is_active, priority, created_at, updated_at, deleted_at) VALUES
+	(1, '1', 'todoTesting', '1', 'very-high', NULL, NULL, NULL),
 	(2, '2', 'performanceTesting1', '1', 'very-high', NULL, NULL, NULL),
 	(3, '2', 'performanceTesting2', '1', 'very-high', NULL, NULL, NULL),
 	(4, '2', 'performanceTesting3', '1', 'very-high', NULL, NULL, NULL),
@@ -1076,74 +1032,5 @@ func main() {
 	(1000, '2', 'performanceTesting999', '1', 'very-high', NULL, NULL, NULL),
 	(1001, '2', 'performanceTesting1000', '1', 'very-high', NULL, NULL, NULL);
 	`)
-
-	req = 1
-	statusCode = result[0].Status
-	bodyString = result[0].Body
-	runtime.GOMAXPROCS(2)
-	http.HandleFunc("/", HelloServer)
-	http.ListenAndServe(":3030", nil)
-}
-
-func HelloServer(w http.ResponseWriter, r *http.Request) {
-	if req > 22 {
-		if r.Method == "POST" {
-			w.WriteHeader(http.StatusCreated)
-		}
-		w.Write([]byte(""))
-		return
-	}
-
-	if req == 1 {
-		decoder := json.NewDecoder(r.Body)
-		var t Input
-		err := decoder.Decode(&t)
-		if err != nil {
-			fmt.Fprint(w, "Test Error")
-			return
-		}
-		email = t.Email
-		bodyString = strings.Replace(bodyString, "mail@test.com", email, 1)
-
-		go func() {
-
-			result[2].Body = strings.Replace(result[2].Body, "mail@test.com", email, 1)
-			result[4].Body = strings.Replace(result[4].Body, "mail@test.com", email, 1)
-			result[6].Body = strings.Replace(result[6].Body, "mail@test.com", email, 1)
-
-		}()
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	w.Write([]byte(bodyString))
-
-	go func() {
-		if req < 22 {
-			statusCode = result[req].Status
-			bodyString = result[req].Body
-			req = req + 1
-		}
-
-	}()
-
-	// if len(result) == 0 {
-	// 	if r.Method == "POST" {
-
-	// 		w.WriteHeader(201)
-	// 	}
-	// 	w.Write([]byte(""))
-	// 	return
-	// }
-	// w.Header().Set("Content-Type", "application/json")
-	// w.WriteHeader(result[0].Status)
-	// w.Write([]byte(result[0].Body))
-	// go func() {
-	// 	if len(result) > 1 {
-	// 		result = result[1:]
-	// 	} else {
-	// 		result = []Result{}
-	// 	}
-	// }()
 
 }
